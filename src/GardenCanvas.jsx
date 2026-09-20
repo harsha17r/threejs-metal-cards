@@ -25,7 +25,12 @@ const wrappedDistance = (index, center, length) => {
 function gardenPixelRatio() {
   if (typeof window === 'undefined') return 1;
   const isPhone = window.innerWidth < 600;
-  const maxDpr = isPhone ? 1 : 1.25;
+  /* The lens pass samples the scene once more before it reaches the screen.
+     A 1x/1.25x cap made small details — especially the chip's rounded edge —
+     visibly soften on the deployed build. 1.5x is enough to preserve those
+     edges while keeping the live three-card pool well below a full-resolution
+     renderer on high-density screens. */
+  const maxDpr = isPhone ? 1.35 : 1.5;
   return Math.min(window.devicePixelRatio || 1, maxDpr);
 }
 const GARDEN_MOTION_DEFAULTS = Object.freeze({
@@ -120,9 +125,10 @@ function GardenLensPass({ effects }) {
          multisample coverage there too; Canvas' own antialias setting cannot
          smooth the card silhouette after it has been redirected into this
          texture. WebGL1 simply ignores the option. */
-      /* Two samples preserve the silhouette while avoiding a 4x offscreen
-         resolve on browsers with a slower WebGL implementation. */
-      samples: 2,
+      /* Four samples keep the chip and card silhouette clean after the
+         optical pass. The render target is limited to the small persistent
+         garden canvas, not a second full-page renderer. */
+      samples: 4,
     });
     /* Keep the intermediate scene texture linear. The final ShaderMaterial
        is rendered by the same renderer and performs the single output-color
