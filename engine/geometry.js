@@ -81,7 +81,7 @@ export function makeChipFaceGeo(inset = 0, cornerR = 0.045, gap = 0) {
   const w = Math.max(0.01, chipW - (gap + inset) * 2);
   const h = Math.max(0.01, chipH - (gap + inset) * 2);
   const r = clamp(cornerR - gap - inset, 0.001, Math.min(w, h) / 2);
-  return planarUV(new THREE.ShapeGeometry(roundedShape(w, h, r), 16), w, h);
+  return planarUV(new THREE.ShapeGeometry(roundedShape(w, h, r), 24), w, h);
 }
 
 /* Solid version — a block with chamfered edges. `height` is how far it stands
@@ -100,7 +100,7 @@ export function makeChipGeo(height, bevelPct, cornerR = 0.045, gap = 0) {
   const h = Math.max(0.02, chipH - gap * 2);
   const r = clamp(cornerR - gap, 0.001, Math.min(w, h) / 2);
   const g = new THREE.ExtrudeGeometry(roundedShape(w, h, r), {
-    depth, steps: 1, curveSegments: 10,
+    depth, steps: 1, curveSegments: 24,
     bevelEnabled: true, bevelSegments: 5,
     bevelSize: bevel, bevelThickness,
   });
@@ -121,5 +121,5 @@ export function makeChipGeo(height, bevelPct, cornerR = 0.045, gap = 0) {
    out of register with the block sitting in it. */
 export function makeChipPocketGeo(cornerR = 0.045) {
   const r = clamp(cornerR, 0.001, Math.min(chipW, chipH) / 2);
-  return planarUV(new THREE.ShapeGeometry(roundedShape(chipW, chipH, r), 16), chipW, chipH);
+  return planarUV(new THREE.ShapeGeometry(roundedShape(chipW, chipH, r), 24), chipW, chipH);
 }

@@ -87,7 +87,10 @@ export function createCard(inputConfig = DEFAULT_CONFIG) {
      behind it. Unlit on purpose too — a line this thin picking up the moving
      key light would shimmer as the card turns. */
   const pocketMat = new THREE.MeshBasicMaterial({
-    color:'#101010', transparent:true, opacity:0.82, depthWrite:false,
+    /* Keep the reveal dark enough to separate the module, but not black
+       enough to read as a printed outline. A softer, neutral pocket lets the
+       artwork's colour bleed naturally into the hairline around the chip. */
+    color:'#242824', transparent:true, opacity:0.48, depthWrite:false,
     toneMapped:false, side:THREE.FrontSide,
     polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2 });
 
@@ -474,8 +477,8 @@ export function createCard(inputConfig = DEFAULT_CONFIG) {
       m.needsUpdate = true;
     }
 
-    seatMat.opacity = (config.chip.seat/100) * 0.8;
-    chipSeat.visible = config.chip.show && config.chip.seat > 0;
+    seatMat.opacity = Math.max((config.chip.seat/100) * 0.8, config.chip.gap > 0 ? 0.12 : 0);
+    chipSeat.visible = config.chip.show && (config.chip.seat > 0 || config.chip.gap > 0);
     chipPad.visible = config.chip.show;
     chipPocket.visible = config.chip.show && chipGapSize(config.chip.gap) > 0;
     chipEtch.visible = config.chip.show && config.chip.etch;
