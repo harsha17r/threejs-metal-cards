@@ -1,30 +1,50 @@
 # Three.js Metal Cards
 
-An interactive WebGL gallery built with Three.js, React Three Fiber, and HTML
-Canvas. Each card is rendered as a live 3D object with depth artwork, metallic
-materials, engraved details, chip geometry, and responsive motion.
+I built **Three.js Metal Cards** as a small study in making digital objects
+feel physical.
+
+Each card is rendered live in WebGL rather than shown as a flat image. It has
+its own depth artwork, metallic surface, engraved details, contact chip, logos,
+and changing reflections. The cards move through a quiet, scrollable gallery,
+where light, perspective, and motion do the storytelling.
+
+## How I built it
+
+I use **Three.js** for the 3D scene and materials, **React Three Fiber** for
+the React integration, and the HTML canvas as the single rendering surface.
+The card engine separates the object into layers—body, artwork, foil, chip,
+engraving, and marks—so every detail can respond naturally to light.
+
+Cards are data-driven. Each JSON file in `cards/` contains the artwork and its
+material settings. The gallery loads those files automatically, which lets me
+design a new card once and add it without changing the renderer. Small details
+such as the chip texture and engraved marks are generated as reusable textures
+and shared across the collection.
+
+The result is intentionally simple to use: scroll through the cards, move the
+pointer across the focused card, or use the keyboard to move one card at a
+time. The interaction stays in the background so the object remains the focus.
 
 ## Add a card
 
-1. Export a depth card as JSON.
-2. Put the exported `.json` file in `cards/`.
-3. Run `npm run dev` or deploy the project again.
+1. Export a depth-card JSON file.
+2. Place it in `cards/`.
+3. Start the gallery or deploy it again.
 
-Every JSON file is loaded automatically. Artwork embedded as a data URL works
-without any additional asset copying. The public site is a focused viewing
-experience with no editor controls.
+Artwork embedded as a data URL travels with the card, so no separate asset
+pipeline is required.
 
-## Local development
+## Run locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-The local URL is `http://localhost:8940`.
+Build for production with:
 
-## Deploy
+```bash
+npm run build
+```
 
-Create a new GitHub repository named `threejs-metal-cards`, then import that
-repository as a new Vercel project. Vercel uses the included `vercel.json`
-automatically.
+The project is designed to deploy directly to Vercel as a Vite application.
