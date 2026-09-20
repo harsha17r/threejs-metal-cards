@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { createEnvironmentBuilder } from '@engine/environment.js';
@@ -6,6 +6,16 @@ import { MetalCardObject } from './MetalCard.jsx';
 
 const FOV = 30;
 const CAMERA_Z = 9.28;
+/* Match the architecture used by fast, card-heavy WebGL showcases: keep a
+   small circular pool around the focused card instead of constructing every
+   saved card on the GPU. Three cards of runway on either side are enough to
+   cover the viewport and warm the next card before it can enter. */
+export const GARDEN_POOL_RADIUS = 3;
+const wrappedDistance = (index, center, length) => {
+  if (length <= 1) return index - center;
+  const linear = index - center;
+  return ((linear + length / 2) % length + length) % length - length / 2;
+};
 /* The garden is a live catalogue, not a still render. A full-resolution
    scene plus a second optical pass can miss the frame budget on the devices
    most likely to visit the deployed page. Keep one crisp desktop tier and a
@@ -96,7 +106,7 @@ const LENS_FRAGMENT_SHADER = /* glsl */`
    masked to the same screen-space height as the glass veils, leaving the
    focused card in the middle pixel-perfect while the incoming and outgoing
    cards pick up the slight bend and colour separation of thick glass. */
-function GardenLensPass({ effects }) {
+function GardenLensPass({ effects, motionRef }) {
   const { gl, scene, camera, size } = useThree();
   const target = useMemo(() => {
     const next = new THREE.WebGLRenderTarget(1, 1, {
@@ -160,6 +170,17 @@ function GardenLensPass({ effects }) {
   }, [pass, target]);
 
   useFrame(() => {
+    /* The edge lens doubles the scene render cost. While the stack is moving,
+       render the clean scene directly; the CSS glass remains visible and the
+       optical treatment returns after the short settle. This keeps scrolling
+       inside the frame budget without changing the resting composition. */
+    const moving = performance.now() - (motionRef.current.lastMotionAt || 0) < 140;
+    if (moving) {
+      gl.setRenderTarget(null);
+      gl.clear();
+      gl.render(scene, camera);
+      return;
+    }
     const dpr = gl.getPixelRatio();
     const width = Math.max(1, Math.round(size.width * dpr));
     const height = Math.max(1, Math.round(size.height * dpr));
@@ -190,7 +211,7 @@ function GardenLensPass({ effects }) {
   return null;
 }
 
-function GardenScene({ cards, motionRef, lights, onCardReady }) {
+function GardenScene({ cards, activeIndex, poolRadius, motionRef, lights, onCardReady }) {
   const { gl, scene, camera, invalidate } = useThree();
   const groups = useRef([]);
   const hoverEnabled = useRef([]);
@@ -199,6 +220,18 @@ function GardenScene({ cards, motionRef, lights, onCardReady }) {
   const corner = useMemo(() => new THREE.Vector3(), []);
   const environmentKey = useMemo(() => JSON.stringify(lights ?? []), [lights]);
   const exposure = cards[0]?.config?.camera?.exposure ?? 100;
+  const liveCards = useMemo(() => cards
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ index }) => Math.abs(wrappedDistance(index, activeIndex, cards.length)) <= poolRadius),
+  [cards, activeIndex, poolRadius]);
+
+  useEffect(() => {
+    motionRef.current.invalidate = invalidate;
+    invalidate();
+    return () => {
+      if (motionRef.current.invalidate === invalidate) motionRef.current.invalidate = null;
+    };
+  }, [invalidate, motionRef]);
 
   useEffect(() => {
     camera.position.set(0, 0, CAMERA_Z);
@@ -232,6 +265,8 @@ function GardenScene({ cards, motionRef, lights, onCardReady }) {
       motion.hoverCurrentX || 0, motion.hoverCardX || 0, hoverEase);
     motion.hoverCurrentY = THREE.MathUtils.lerp(
       motion.hoverCurrentY || 0, motion.hoverCardY || 0, hoverEase);
+    const hoverStillSettling = Math.abs((motion.hoverCurrentX || 0) - (motion.hoverCardX || 0)) > 0.001
+      || Math.abs((motion.hoverCurrentY || 0) - (motion.hoverCardY || 0)) > 0.001;
     const pxToWorld = (motion.viewportH > 0)
       ? (2 * Math.tan(THREE.MathUtils.degToRad(FOV / 2)) * CAMERA_Z) / motion.viewportH
       : 0.01;
@@ -321,7 +356,9 @@ function GardenScene({ cards, motionRef, lights, onCardReady }) {
       group.scale.setScalar(THREE.MathUtils.lerp(listScale, gridScale, t));
     });
 
-    const focusedIndex = Math.max(0, Math.min(cards.length - 1, Math.round(center)));
+    const focusedIndex = cards.length
+      ? ((Math.round(center) % cards.length) + cards.length) % cards.length
+      : 0;
     const focused = groups.current[focusedIndex];
     if (focused && !grid) {
       bounds.setFromObject(focused);
@@ -342,13 +379,14 @@ function GardenScene({ cards, motionRef, lights, onCardReady }) {
     } else {
       motion.cardRect = null;
     }
+    if (hoverStillSettling || motion.dragging) invalidate();
   });
 
   return (
     <>
       <ambientLight intensity={0.3} />
       <directionalLight position={[-4, 5, 7]} intensity={0.24} />
-      {cards.map((entry, index) => (
+      {liveCards.map(({ entry, index }) => (
         <MetalCardObject
           key={entry.id || index}
           config={entry.config}
@@ -369,9 +407,25 @@ function GardenScene({ cards, motionRef, lights, onCardReady }) {
   );
 }
 
-export default function GardenCanvas({ cards, motionRef, lights, lensEffects, motionTuning, onCardReady }) {
+export default function GardenCanvas({
+  cards, activeIndex, revealed, motionRef, lights, lensEffects, motionTuning, onCardReady,
+}) {
   motionRef.current.tuning = motionTuning ?? GARDEN_MOTION_DEFAULTS;
   const hostRef = useRef(null);
+  const [poolRadius, setPoolRadius] = useState(revealed ? GARDEN_POOL_RADIUS : 1);
+  useEffect(() => {
+    if (!revealed) {
+      setPoolRadius(1);
+      return undefined;
+    }
+    const expand = () => setPoolRadius(GARDEN_POOL_RADIUS);
+    if ('requestIdleCallback' in window) {
+      const handle = window.requestIdleCallback(expand, { timeout: 1200 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const timer = window.setTimeout(expand, 700);
+    return () => window.clearTimeout(timer);
+  }, [revealed]);
   const updatePointer = (event) => {
     const rect = hostRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -388,6 +442,7 @@ export default function GardenCanvas({ cards, motionRef, lights, lensEffects, mo
       ? ((x - cardRect.left) / Math.max(cardRect.right - cardRect.left, 1)) * 2 - 1 : 0;
     motionRef.current.hoverCardY = overCard
       ? ((y - cardRect.top) / Math.max(cardRect.bottom - cardRect.top, 1)) * 2 - 1 : 0;
+    motionRef.current.invalidate?.();
   };
   const onPointerDown = (event) => {
     updatePointer(event);
@@ -411,6 +466,7 @@ export default function GardenCanvas({ cards, motionRef, lights, lensEffects, mo
       x: THREE.MathUtils.clamp(-(motionRef.current.dragDY || 0) * 0.18, -68, 68),
       y: THREE.MathUtils.clamp((motionRef.current.dragDX || 0) * 0.22, -68, 68),
     };
+    motionRef.current.invalidate?.();
   };
   const onPointerUp = (event) => {
     motionRef.current.dragging = false;
@@ -438,10 +494,17 @@ export default function GardenCanvas({ cards, motionRef, lights, lensEffects, mo
         dpr={gardenPixelRatio()}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
         camera={{ fov: FOV, position: [0, 0, CAMERA_Z], near: 0.1, far: 80 }}
-        frameloop="always"
+        frameloop="demand"
       >
-        <GardenScene cards={cards} motionRef={motionRef} lights={lights} onCardReady={onCardReady} />
-        {lensEffects?.enabled ? <GardenLensPass effects={lensEffects} /> : null}
+        <GardenScene
+          cards={cards}
+          activeIndex={activeIndex}
+          poolRadius={poolRadius}
+          motionRef={motionRef}
+          lights={lights}
+          onCardReady={onCardReady}
+        />
+        {lensEffects?.enabled ? <GardenLensPass effects={lensEffects} motionRef={motionRef} /> : null}
       </Canvas>
     </div>
   );

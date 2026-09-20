@@ -315,9 +315,13 @@ export default function GardenApp() {
   useEffect(() => {
     setReadyIds(new Set());
   }, [cards]);
+  /* Only the circular live pool is constructed at first paint. Waiting for
+     all catalogue entries would defeat the pool and hold the loader open for
+     cards that are intentionally dormant. */
+  const initialReadyCount = Math.min(styled.length, 3);
   const readyProgress = styled.length === 0
     ? cards === null ? 0 : 1
-    : readyIds.size / styled.length;
+    : Math.min(readyIds.size, initialReadyCount) / Math.max(initialReadyCount, 1);
   const rawLoadingProgress = cards === null
     ? Math.min(70, 8 + cardLoadProgress * 62)
     : 70 + Math.round(readyProgress * 30);

@@ -207,6 +207,8 @@ export default function GardenStack({ cards, lensEffects, motionTuning, onCardRe
     gridProgress: 0, isMobile: false, gridColumns: 1,
     gridCardSizePx: 1, gridItemHeightPx: 1,
     loop: false,
+    invalidate: null,
+    lastMotionAt: 0,
   });
 
   /* Keep one stable set of WebGL cards mounted. The document scroll position
@@ -563,6 +565,11 @@ export default function GardenStack({ cards, lensEffects, motionTuning, onCardRe
       }
     };
 
+    let previousCanvasFloat = Number.NaN;
+    let previousCanvasGrid = Number.NaN;
+    let previousCanvasWidth = Number.NaN;
+    let previousCanvasHeight = Number.NaN;
+    let lensSettleTimer = 0;
     const render = (time) => {
       if (destroyed) return;
       lenis.raf(time);
@@ -648,6 +655,24 @@ export default function GardenStack({ cards, lensEffects, motionTuning, onCardRe
       canvasMotionRef.current.gridItemHeightPx = layout.gridItemHeightPx;
       canvasMotionRef.current.reducedMotion = reduceMotion;
       canvasMotionRef.current.loop = loop;
+
+      const canvasChanged = !Number.isFinite(previousCanvasFloat)
+        || Math.abs(floatIndex - previousCanvasFloat) > 0.0001
+        || Math.abs(gridProgress - previousCanvasGrid) > 0.0001
+        || viewportW !== previousCanvasWidth
+        || vh !== previousCanvasHeight;
+      if (canvasChanged) {
+        previousCanvasFloat = floatIndex;
+        previousCanvasGrid = gridProgress;
+        previousCanvasWidth = viewportW;
+        previousCanvasHeight = vh;
+        canvasMotionRef.current.lastMotionAt = time;
+        canvasMotionRef.current.invalidate?.();
+        window.clearTimeout(lensSettleTimer);
+        lensSettleTimer = window.setTimeout(() => {
+          canvasMotionRef.current.invalidate?.();
+        }, 170);
+      }
 
       setActive(loop
         ? wrapIndex(Math.round(effectiveFloat), cards.length)
@@ -772,6 +797,7 @@ export default function GardenStack({ cards, lensEffects, motionTuning, onCardRe
     return () => {
       destroyed = true;
       window.cancelAnimationFrame(frameId);
+      window.clearTimeout(lensSettleTimer);
       window.clearTimeout(keySnapResetTimer);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
@@ -948,6 +974,8 @@ export default function GardenStack({ cards, lensEffects, motionTuning, onCardRe
           </div>
           <GardenCanvas
             cards={cards}
+            activeIndex={activeIndex}
+            revealed={revealed}
             motionRef={canvasMotionRef}
             lights={cards[0]?.config?.lights ?? []}
             lensEffects={lensEffects}
