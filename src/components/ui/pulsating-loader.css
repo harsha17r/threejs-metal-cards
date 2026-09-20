@@ -1,0 +1,62 @@
+.pulsating-loader {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.pulsating-loader__wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 48px;
+}
+
+.pulsating-loader__bar {
+  display: block;
+  width: 7px;
+  height: 32px;
+  border-radius: 999px;
+  background: #80e200;
+  box-shadow:
+    0 0 12px rgba(128, 226, 0, .58),
+    0 0 28px rgba(128, 226, 0, .2);
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+.pulsating-loader__progress-frame {
+  display: grid;
+  grid-template-columns: repeat(3, 1ch) .75ch;
+  align-items: center;
+  justify-content: center;
+  width: 3.75ch;
+  height: 1em;
+  color: #80e200;
+  font-family: 'National Park', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: .04em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.pulsating-loader__digit-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1ch;
+  height: 1em;
+}
+
+.pulsating-loader__progress {
+  text-align: center;
+}
+
+.pulsating-loader__percent {
+  display: block;
+  width: .75ch;
+  text-align: right;
+}

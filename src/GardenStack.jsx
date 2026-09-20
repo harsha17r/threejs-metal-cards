@@ -117,9 +117,11 @@ const PARAMS = {
   },
 };
 
-/* The reel that plays once on load: the stack settles in from a third of a
-   card out. */
-const INTRO = { durationMs: 1080, startIndexOffset: -0.3 };
+/* The reel that plays once the loader releases the scene. It begins just over
+   one card-step below the resting index, so one card rolls upward through the
+   focal plane before the first card settles exactly flat at centre. The short
+   delay lets the loader begin fading first without hiding the useful motion. */
+const INTRO = { durationMs: 1240, delayMs: 300, startIndexOffset: 1.08 };
 
 const GRID_PROGRESS_SNAP = 0.012;
 const MORPH_DURATION_MS = 480;
@@ -141,7 +143,7 @@ const CLICK_SLOP_PX = 6;
 const FLICK_PROJECT_MS = 260;
 const FLICK_SETTLE_S = 0.62;
 
-export default function GardenStack({ cards, lensEffects, motionTuning, onCardReady }) {
+export default function GardenStack({ cards, lensEffects, motionTuning, onCardReady, revealed = true }) {
   const [viewportW, setViewportW] = useState(() => (typeof window === 'undefined' ? 1280 : window.innerWidth));
   const [viewportH, setViewportH] = useState(() => (typeof window === 'undefined' ? 760 : window.innerHeight));
   const [viewMode, setViewMode] = useState('list');
@@ -185,6 +187,11 @@ export default function GardenStack({ cards, lensEffects, motionTuning, onCardRe
      rebuild, resizing the window replays the whole entrance. It should play
      once per visit. */
   const introPlayedRef = useRef(false);
+  /* Loading and card construction happen while this scene is mounted. Keep
+     the latest reveal state outside the render-loop closure so the intro can
+     begin on the first frame after the loading page releases it. */
+  const revealedRef = useRef(revealed);
+  revealedRef.current = revealed;
   const keySnapTargetRef = useRef(null);
   /* Where a released flick is still coasting to, so a second gesture can
      interrupt the settle without leaving a stale snap target behind. */
@@ -471,10 +478,7 @@ export default function GardenStack({ cards, lensEffects, motionTuning, onCardRe
     let vh = window.innerHeight;
     let sectionH = layout.sectionSpacingPx;
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const playIntro = !introPlayedRef.current && !reduceMotion;
-    introPlayedRef.current = true;
-    introStartRef.current = null;
-    introCompleteRef.current = !playIntro;
+    if (reduceMotion) introCompleteRef.current = true;
 
     const lenis = new Lenis({
       smoothWheel: true,
@@ -556,7 +560,6 @@ export default function GardenStack({ cards, lensEffects, motionTuning, onCardRe
 
     const render = (time) => {
       if (destroyed) return;
-      if (introStartRef.current === null) introStartRef.current = time;
       lenis.raf(time);
 
       const scroll = lenis.scroll;
@@ -565,12 +568,25 @@ export default function GardenStack({ cards, lensEffects, motionTuning, onCardRe
         ? scroll / Math.max(sectionH, 1)
         : clampNumber(scroll / Math.max(sectionH, 1), 0, Math.max(cards.length - 1, 0));
 
-      const introElapsed = introCompleteRef.current ? INTRO.durationMs : time - introStartRef.current;
-      const introT = introCompleteRef.current ? 1 : clampNumber(introElapsed / INTRO.durationMs, 0, 1);
       let introOffset = 0;
-      if (!introCompleteRef.current) {
-        introOffset = INTRO.startIndexOffset * (1 - easeOutCubic(introT));
-        if (introT >= 1) { introOffset = 0; introCompleteRef.current = true; }
+      if (!reduceMotion && !introCompleteRef.current) {
+        if (!revealedRef.current) {
+          /* Hold the composed WebGL scene at the first ratchet tooth while
+             the loader is visible; do not spend the animation off-screen. */
+          introOffset = INTRO.startIndexOffset;
+        } else {
+          if (!introPlayedRef.current) {
+            introPlayedRef.current = true;
+            introStartRef.current = time + INTRO.delayMs;
+          }
+          const introElapsed = Math.max(0, time - introStartRef.current);
+          const introT = clampNumber(introElapsed / INTRO.durationMs, 0, 1);
+          introOffset = INTRO.startIndexOffset * (1 - easeOutStrong(introT));
+          if (introT >= 1) {
+            introOffset = 0;
+            introCompleteRef.current = true;
+          }
+        }
       }
 
       /* ---- the morph driver ---- */

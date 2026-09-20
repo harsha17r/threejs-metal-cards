@@ -15,8 +15,9 @@
    the whole picture. */
 
 import { useEffect, useMemo, useState } from 'react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import GardenStack, { FRAME_HEADROOM } from './GardenStack.jsx';
+import PulsatingLoader from './components/ui/pulsating-loader.jsx';
 import { listCards } from './library.js';
 import { DEFAULT_RIG } from '@engine/config.js';
 
@@ -185,26 +186,19 @@ function Empty() {
   );
 }
 
-function LoadingScreen({ progress, complete }) {
+function LoadingScreen({ progress }) {
   return (
-    <div className={`garden-loading${complete ? ' garden-loading--complete' : ''}`} aria-live="polite">
-      <div className="garden-loading__inner">
-        <div className="garden-loading__bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}>
-          <motion.div
-            className="garden-loading__fill"
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-          />
-        </div>
-        <motion.div
-          className="garden-loading__percent"
-          animate={{ opacity: complete ? 0 : 1 }}
-          transition={{ duration: 0.25 }}
-        >
-          {progress}%
-        </motion.div>
-      </div>
-    </div>
+    <motion.div
+      className="garden-loading"
+      role="status"
+      aria-label="Loading card collection"
+      initial={{ opacity: 1 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.28, ease: [0.19, 1, 0.22, 1] }}
+    >
+      <PulsatingLoader progress={progress} />
+    </motion.div>
   );
 }
 
@@ -212,6 +206,7 @@ export default function GardenApp() {
   const cards = STATIC_CARDS;
   const lighting = GARDEN_LIGHTING_DEFAULTS;
   const [readyIds, setReadyIds] = useState(() => new Set());
+  const [displayedProgress, setDisplayedProgress] = useState(0);
   const chipControls = {
     plateColor: '#86878c',
     plateContrast: 82,
@@ -260,11 +255,26 @@ export default function GardenApp() {
     };
   }), [cards, gardenLights, chipControls]);
 
-  useEffect(() => { setReadyIds(new Set()); }, [cards]);
-  const loadingProgress = styled.length === 0
+  useEffect(() => {
+    setReadyIds(new Set());
+    setDisplayedProgress(0);
+  }, [cards]);
+  const actualLoadingProgress = styled.length === 0
     ? 100
     : Math.round((readyIds.size / styled.length) * 100);
-  const loadingComplete = loadingProgress >= 100;
+  useEffect(() => {
+    const ceiling = actualLoadingProgress >= 100 ? 100 : 92;
+    if (displayedProgress >= ceiling) return undefined;
+
+    const delay = actualLoadingProgress >= 100
+      ? 24
+      : displayedProgress < 60 ? 34 : displayedProgress < 85 ? 72 : 160;
+    const timer = window.setTimeout(() => {
+      setDisplayedProgress((value) => Math.min(value + 1, ceiling));
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [actualLoadingProgress, displayedProgress]);
+  const loadingComplete = displayedProgress >= 100;
 
   return (
     <div className="garden-root">
@@ -274,6 +284,7 @@ export default function GardenApp() {
           <GardenStack
             key={styleKey}
             cards={styled}
+            revealed={loadingComplete}
             lensEffects={{
               ...GARDEN_GLASS_DEFAULTS.optics,
               edgeHeight: GARDEN_GLASS_DEFAULTS.geometry.height,
@@ -288,7 +299,9 @@ export default function GardenApp() {
           />
         )}
       <GardenEdgeGlass controls={GARDEN_GLASS_DEFAULTS} />
-      <LoadingScreen progress={loadingProgress} complete={loadingComplete} />
+      <AnimatePresence>
+        {!loadingComplete ? <LoadingScreen key="loading-screen" progress={displayedProgress} /> : null}
+      </AnimatePresence>
     </div>
   );
 }
