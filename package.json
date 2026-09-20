@@ -1,5 +1,6 @@
 {
-  "name": "harsha-gowda-gallery",
+  "name": "threejs-metal-cards",
+  "description": "An interactive Three.js and WebGL gallery for generative metal cards.",
   "private": true,
   "version": "1.0.0",
   "type": "module",
