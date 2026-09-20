@@ -294,7 +294,18 @@ function GardenScene({ cards, motionRef, lights, onCardReady }) {
       group.position.x = THREE.MathUtils.lerp(0, gridX, t);
       group.position.y = THREE.MathUtils.lerp(listY, gridY, t);
       group.visible = grid || Math.abs(distance) < 4.5;
-      group.scale.setScalar(THREE.MathUtils.lerp(1, 0.72, t));
+      /* The layout frame is intentionally larger than the visible card to
+         leave room for tilt. On phones the same world-space card otherwise
+         fills the viewport before perspective and the edge optics are applied.
+         Scale the whole group so the card and every inset detail stay together. */
+      /* CSS has clamp(); for the Three.js group use the same bounded rule so
+         a narrow phone does not inherit a near-desktop card footprint. The
+         viewport width is in CSS pixels, while the scale is world-space. */
+      const mobileListScale = THREE.MathUtils.clamp(
+        (motion.viewportW || 390) / 860, 0.42, 0.56);
+      const listScale = motion.isMobile ? mobileListScale : 1;
+      const gridScale = 0.72;
+      group.scale.setScalar(THREE.MathUtils.lerp(listScale, gridScale, t));
     });
 
     const focusedIndex = Math.max(0, Math.min(cards.length - 1, Math.round(center)));

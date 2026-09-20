@@ -89,6 +89,45 @@ const GARDEN_MOTION = Object.freeze({
   rightCenterSensitivity: 40,
 });
 
+/* The gallery sequence is curated from the artwork itself. Keep this list
+   explicit so adding a new export never silently changes the presentation. */
+const ARTWORK_HUE_ORDER = Object.freeze([
+  'strawberry',
+  'watermelon',
+  'goldfish',
+  'tiger',
+  'butterfly',
+  'pumpkin',
+  'giraffe',
+  'mushroom',
+  'deer',
+  'cheetah',
+  'sand',
+  'jackfruit',
+  'kiwi',
+  'chameleon',
+  'beetle',
+  'lotus-leaf',
+  'crocodile',
+  'tortoise',
+  'eye',
+  'onion',
+  'dragon-fruit',
+  /* These two existing cards were not included in the requested sequence;
+     keep them visible after the curated run rather than dropping them. */
+  'dragon-fruit-variant',
+  'zebra',
+]);
+const ARTWORK_HUE_RANK = new Map(ARTWORK_HUE_ORDER.map((id, index) => [id, index]));
+
+function orderCardsByArtworkHue(entries) {
+  return [...entries].sort((a, b) => {
+    const aRank = ARTWORK_HUE_RANK.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+    const bRank = ARTWORK_HUE_RANK.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+    return aRank - bRank;
+  });
+}
+
 /* The edge glass is deliberately a screen-space layer rather than part of
    the Three scene. Two static backdrop filters can stay composited while the
    cards move underneath them, and none of the infinite-scroll maths needs to
@@ -222,7 +261,7 @@ export default function GardenApp() {
       if (active) setCardLoadProgress(progress);
     }).then((loadedCards) => {
       if (!active) return;
-      setCards(loadedCards);
+      setCards(orderCardsByArtworkHue(loadedCards));
       setCardLoadProgress(1);
     }).catch((error) => {
       console.error('Could not load the card collection.', error);

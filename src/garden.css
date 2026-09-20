@@ -194,6 +194,34 @@
     radial-gradient(ellipse 70% 44% at 50% 100%, rgba(255, 255, 255, 0.16), transparent 72%);
 }
 
+/* Mobile cards use the full viewport as their stage. Keep the safe-area
+   breathing room and shorten the glass veil so the focused card is not hidden
+   behind two desktop-sized edge treatments on a phone. */
+@media (max-width: 599px) {
+  .garden-root {
+    min-height: 100svh;
+  }
+
+  .garden-shell,
+  .garden-stage {
+    min-height: 100svh;
+    height: 100dvh;
+  }
+
+  .garden-shell {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .garden-edge-glass__veil {
+    height: min(var(--garden-glass-height), 18svh);
+  }
+
+  .garden-canvas canvas {
+    touch-action: pan-y;
+  }
+}
+
 /* Nothing clips a card but the window.
 
    This used to be `overflow: hidden`, which drew the stack inside a box the

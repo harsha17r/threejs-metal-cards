@@ -223,7 +223,10 @@ export default function GardenStack({ cards, lensEffects, motionTuning, onCardRe
     /* The card's own box. Nothing else shares the row now that the panel is
        gone, so these are the widths of the picture itself rather than of a
        plate with a card inside it. */
-    const mobileCardPx = clampNumber(viewportW * 0.92, 260, 400);
+    /* Keep phones deliberately smaller than the desktop composition. The
+       canvas adds its own perspective/tilt headroom, so a 72% CSS width gives
+       the visible card comfortable side margins even while it is rotating. */
+    const mobileCardPx = clampNumber(viewportW * 0.72, 220, 300);
     const compactTabletCardPx = clampNumber(viewportW * 0.62, 340, 500);
     const wideTabletCardPx = clampNumber(viewportW * 0.54, 440, 620);
     const desktopCardPx = clampNumber(viewportW * 0.42, 500, PARAMS.stack.size);
@@ -266,10 +269,12 @@ export default function GardenStack({ cards, lensEffects, motionTuning, onCardRe
        neighbours entirely outside the crop on a short window, and the stack
        lost the one thing that makes it read as a stack. */
     const listCardHeightPx = listCardWidthPx / CARD_ASPECT;
-    /* Give the list a generous breathing space. The old 22% gap made the
-       next card crowd the focused one, especially on wide screens where the
-       cards are large enough to deserve a proper pause between them. */
-    const sectionSpacingPx = listCardHeightPx + clampNumber(listCardHeightPx * 0.72, 150, 320);
+    /* On phones the tilted card can project beyond its nominal box. Make the
+       pitch unambiguously larger than the card height so adjacent cards can
+       never touch, even at the most dramatic entrance angle. */
+    const sectionSpacingPx = listCardHeightPx + (isMobile
+      ? clampNumber(listCardHeightPx * 1.35, 220, 360)
+      : clampNumber(listCardHeightPx * 0.72, 150, 320));
 
     return {
       isMobile,
