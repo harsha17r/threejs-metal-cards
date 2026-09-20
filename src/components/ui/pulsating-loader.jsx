@@ -44,7 +44,7 @@ export default function PulsatingLoader({ progress = 0 }) {
             <TextMorph
               as="span"
               className="pulsating-loader__progress"
-              duration={120}
+              duration={160}
               ease="cubic-bezier(0.19, 1, 0.22, 1)"
               numbers
               scale={false}

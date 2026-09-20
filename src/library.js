@@ -1,9 +1,9 @@
-/* Every exported JSON file in /cards becomes one garden entry. The export can
-   be either a raw card config or a library-style { config } wrapper. */
-const modules = import.meta.glob('../cards/*.json', { eager: true });
+/* Every exported JSON file in /cards becomes one garden entry. Keep these
+   imports lazy: artwork is embedded in each JSON file, so eager imports make
+   the first JavaScript bundle enormous before the loader can paint. */
+const modules = import.meta.glob('../cards/*.json');
 
-export function listCards() {
-  return Object.entries(modules).map(([path, module], index) => {
+function normalizeCard(path, module, index) {
     const raw = module.default ?? module;
     const config = raw.config ?? raw;
     const filename = path.split('/').pop().replace(/\.json$/i, '');
@@ -20,5 +20,17 @@ export function listCards() {
         engraving: { ...config.engraving, name: 'HARSHA GOWDA' },
       },
     };
-  }).sort((a, b) => a.savedAt - b.savedAt);
+}
+
+export async function loadCards(onProgress) {
+  const entries = Object.entries(modules);
+  let loaded = 0;
+  const cards = await Promise.all(entries.map(async ([path, load], index) => {
+    const module = await load();
+    loaded += 1;
+    onProgress?.(loaded / Math.max(entries.length, 1));
+    return normalizeCard(path, module, index);
+  }));
+
+  return cards.sort((a, b) => a.savedAt - b.savedAt);
 }

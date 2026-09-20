@@ -18,10 +18,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import GardenStack, { FRAME_HEADROOM } from './GardenStack.jsx';
 import PulsatingLoader from './components/ui/pulsating-loader.jsx';
-import { listCards } from './library.js';
+import { loadCards } from './library.js';
 import { DEFAULT_RIG } from '@engine/config.js';
-
-const STATIC_CARDS = listCards();
 
 /* How much closer the garden stands than the playground does.
 
@@ -203,8 +201,9 @@ function LoadingScreen({ progress }) {
 }
 
 export default function GardenApp() {
-  const cards = STATIC_CARDS;
   const lighting = GARDEN_LIGHTING_DEFAULTS;
+  const [cards, setCards] = useState(null);
+  const [cardLoadProgress, setCardLoadProgress] = useState(0);
   const [readyIds, setReadyIds] = useState(() => new Set());
   const [displayedProgress, setDisplayedProgress] = useState(0);
   const chipControls = {
@@ -216,6 +215,22 @@ export default function GardenApp() {
     surfaceGrain: 14,
     microScratches: 0,
   };
+
+  useEffect(() => {
+    let active = true;
+    loadCards((progress) => {
+      if (active) setCardLoadProgress(progress);
+    }).then((loadedCards) => {
+      if (!active) return;
+      setCards(loadedCards);
+      setCardLoadProgress(1);
+    }).catch((error) => {
+      console.error('Could not load the card collection.', error);
+      if (active) setCards([]);
+    });
+    return () => { active = false; };
+  }, []);
+
   const gardenLights = useMemo(() => {
     const lights = BASE_GARDEN_LIGHTS.map((light) => ({ ...light }));
     lights[0] = { ...lights[0], intensity: lighting.frontSoftbox };
@@ -227,8 +242,8 @@ export default function GardenApp() {
     return lights;
   }, [lighting]);
 
-  const styleKey = useMemo(() => cards.map((entry) => entry.id).join('|'), [cards]);
-  const styled = useMemo(() => cards.map((entry) => {
+  const styleKey = useMemo(() => cards?.map((entry) => entry.id).join('|') ?? '', [cards]);
+  const styled = useMemo(() => (cards ?? []).map((entry) => {
     const config = entry.config;
     return {
       ...entry,
@@ -259,26 +274,31 @@ export default function GardenApp() {
     setReadyIds(new Set());
     setDisplayedProgress(0);
   }, [cards]);
-  const actualLoadingProgress = styled.length === 0
-    ? 100
-    : Math.round((readyIds.size / styled.length) * 100);
+  const readyProgress = styled.length === 0
+    ? cards === null ? 0 : 1
+    : readyIds.size / styled.length;
+  const actualLoadingProgress = cards === null
+    ? Math.min(70, 8 + cardLoadProgress * 62)
+    : 70 + Math.round(readyProgress * 30);
   useEffect(() => {
     const ceiling = actualLoadingProgress >= 100 ? 100 : 92;
     if (displayedProgress >= ceiling) return undefined;
 
     const delay = actualLoadingProgress >= 100
       ? 24
-      : displayedProgress < 60 ? 34 : displayedProgress < 85 ? 72 : 160;
+      : displayedProgress < 60 ? 90 : displayedProgress < 85 ? 120 : 160;
     const timer = window.setTimeout(() => {
       setDisplayedProgress((value) => Math.min(value + 1, ceiling));
     }, delay);
     return () => window.clearTimeout(timer);
   }, [actualLoadingProgress, displayedProgress]);
-  const loadingComplete = displayedProgress >= 100;
+  const loadingComplete = cards !== null && readyProgress >= 1 && displayedProgress >= 100;
 
   return (
     <div className="garden-root">
-      {styled.length === 0
+      {cards === null
+        ? null
+        : styled.length === 0
         ? <Empty />
         : (
           <GardenStack
