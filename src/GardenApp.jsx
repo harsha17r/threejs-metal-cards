@@ -14,7 +14,7 @@
    them, no name, no panel, no caption: a card hangs in the dark and that is
    the whole picture. */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import GardenStack, { FRAME_HEADROOM } from './GardenStack.jsx';
 import PulsatingLoader from './components/ui/pulsating-loader.jsx';
@@ -244,6 +244,10 @@ export default function GardenApp() {
   const [cardLoadProgress, setCardLoadProgress] = useState(0);
   const [readyIds, setReadyIds] = useState(() => new Set());
   const [displayedProgress, setDisplayedProgress] = useState(0);
+  /* The loader has two real phases (module loading, then WebGL readiness),
+     but the user should experience one continuous timeline. Keep the highest
+     target reached so a phase hand-off can never send the number backwards. */
+  const progressFloorRef = useRef(0);
   const chipControls = {
     plateColor: '#86878c',
     plateContrast: 82,
@@ -310,14 +314,18 @@ export default function GardenApp() {
 
   useEffect(() => {
     setReadyIds(new Set());
-    setDisplayedProgress(0);
   }, [cards]);
   const readyProgress = styled.length === 0
     ? cards === null ? 0 : 1
     : readyIds.size / styled.length;
-  const actualLoadingProgress = cards === null
+  const rawLoadingProgress = cards === null
     ? Math.min(70, 8 + cardLoadProgress * 62)
     : 70 + Math.round(readyProgress * 30);
+  /* Card data and WebGL can report at slightly different times. Treat their
+     weighted value as a target, but make the target itself monotonic so a
+     React phase transition cannot cause a visible reset. */
+  progressFloorRef.current = Math.max(progressFloorRef.current, rawLoadingProgress);
+  const actualLoadingProgress = progressFloorRef.current;
   useEffect(() => {
     const ceiling = actualLoadingProgress >= 100 ? 100 : 92;
     if (displayedProgress >= ceiling) return undefined;

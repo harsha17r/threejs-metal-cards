@@ -6,6 +6,17 @@ import { MetalCardObject } from './MetalCard.jsx';
 
 const FOV = 30;
 const CAMERA_Z = 9.28;
+/* The garden is a live catalogue, not a still render. A full-resolution
+   scene plus a second optical pass can miss the frame budget on the devices
+   most likely to visit the deployed page. Keep one crisp desktop tier and a
+   deliberately bounded phone tier; the card's geometry and textures remain
+   unchanged. */
+function gardenPixelRatio() {
+  if (typeof window === 'undefined') return 1;
+  const isPhone = window.innerWidth < 600;
+  const maxDpr = isPhone ? 1 : 1.25;
+  return Math.min(window.devicePixelRatio || 1, maxDpr);
+}
 const GARDEN_MOTION_DEFAULTS = Object.freeze({
   hoverSensitivity: 24,
   entryAngle: 90,
@@ -98,7 +109,9 @@ function GardenLensPass({ effects }) {
          multisample coverage there too; Canvas' own antialias setting cannot
          smooth the card silhouette after it has been redirected into this
          texture. WebGL1 simply ignores the option. */
-      samples: 4,
+      /* Two samples preserve the silhouette while avoiding a 4x offscreen
+         resolve on browsers with a slower WebGL implementation. */
+      samples: 2,
     });
     /* Keep the intermediate scene texture linear. The final ShaderMaterial
        is rendered by the same renderer and performs the single output-color
@@ -422,7 +435,7 @@ export default function GardenCanvas({ cards, motionRef, lights, lensEffects, mo
       }}
     >
       <Canvas
-        dpr={[1, 1.5]}
+        dpr={gardenPixelRatio()}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
         camera={{ fov: FOV, position: [0, 0, CAMERA_Z], near: 0.1, far: 80 }}
         frameloop="always"
