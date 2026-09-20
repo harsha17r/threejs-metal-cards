@@ -111,12 +111,11 @@ const ARTWORK_HUE_ORDER = Object.freeze([
   'crocodile',
   'tortoise',
   'eye',
-  'onion',
-  'dragon-fruit',
-  /* These two existing cards were not included in the requested sequence;
-     keep them visible after the curated run rather than dropping them. */
+  /* The remaining variants and pink artwork close the loop after Zebra. */
   'dragon-fruit-variant',
   'zebra',
+  'onion',
+  'dragon-fruit',
 ]);
 const ARTWORK_HUE_RANK = new Map(ARTWORK_HUE_ORDER.map((id, index) => [id, index]));
 
