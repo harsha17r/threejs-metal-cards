@@ -1,0 +1,186 @@
+:root {
+  color-scheme: dark;
+  --bg: #161816;
+  --panel: #18181a;
+  --line: #2a2a2e;
+  --ink: #e9e9e6;
+  --ink-2: #a3a3a0;
+  --accent: #c8dc32;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.5 'Chivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+main { max-width: 1180px; margin: 0 auto; padding: 26px 24px 80px; }
+
+h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px; color: var(--ink-2); }
+
+header { margin-bottom: 28px; }
+
+.hint { color: var(--ink-2); font-size: 12px; margin: 6px 0; }
+.hint a { color: var(--accent); }
+.error { color: #ff8b6b; font-size: 12px; margin: 8px 0; }
+
+code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: var(--accent); }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 22px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  background: #101011;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  padding: 10px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+}
+
+input {
+  flex: 1;
+  background: #101011;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  padding: 8px 10px;
+  font: inherit;
+}
+
+button {
+  background: var(--accent);
+  color: #15150c;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font: 600 13px/1 inherit;
+  cursor: pointer;
+}
+button.ghost { background: transparent; color: var(--ink-2); border: 1px solid var(--line); }
+button.link { background: none; color: var(--ink); padding: 0; font-weight: 600; text-align: left; }
+button:hover { filter: brightness(1.08); }
+
+.row { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+.spacer { flex: 1; }
+
+/* The preview needs a real height — a Canvas in an auto-height parent
+   collapses to nothing and renders one very confusing blank box. */
+.preview {
+  height: 340px;
+  margin-top: 16px;
+  border-radius: 10px;
+  background: #ececea;
+}
+
+.facts { display: flex; gap: 22px; margin: 14px 0 0; flex-wrap: wrap; }
+.facts div { display: flex; flex-direction: column; gap: 2px; }
+.facts dt { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-2); }
+.facts dd { margin: 0; font-size: 13px; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.tile { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #141416; }
+.tile-card { height: 230px; background: #ececea; }
+.tile-bar { display: flex; gap: 8px; align-items: center; padding: 10px 12px; }
+.tile-bar input { font-size: 13px; padding: 4px 8px; }
+.tile .hint { padding: 0 12px 10px; margin: 0; }
+
+/* A tile is an <img> once captured, so it must fill the same box the live
+   canvas did or the grid jumps when the snapshot lands. */
+.thumb { position: relative; width: 100%; height: 100%; }
+.thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.thumb-btn {
+  position: absolute; right: 8px; bottom: 8px;
+  padding: 4px 10px; font-size: 11px;
+  background: rgba(20,20,22,.82); color: var(--ink); border: 1px solid var(--line);
+}
+.thumb-wait { display: grid; place-items: center; height: 100%; color: var(--ink-2); }
+
+/* ---------- top bar + guide ----------
+   Mirrors the playground's bar so moving between the two halves does not feel
+   like moving between two different products. The markup comes from
+   TopBar.jsx; the words come from shared/help.js. */
+.topbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 22px;
+  background: rgba(24,24,26,.88);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.topbar-nav { display: flex; gap: 2px; }
+.topbar-spacer { flex: 1; }
+.topbar-link {
+  color: var(--ink-2); text-decoration: none;
+  font-size: 12.5px; font-weight: 600;
+  padding: 5px 10px; border-radius: 7px;
+}
+.topbar-link:hover { background: #232326; color: var(--ink); }
+.topbar-link[aria-current="page"] { background: #232326; color: var(--ink); }
+.topbar-help {
+  font: 600 12.5px/1 inherit;
+  padding: 7px 12px; border-radius: 7px;
+}
+
+.help-dialog {
+  max-width: 660px; width: calc(100% - 40px);
+  max-height: 84vh;
+  padding: 26px 28px 30px;
+  border: 1px solid var(--line); border-radius: 14px;
+  background: var(--panel); color: var(--ink);
+}
+.help-dialog::backdrop { background: rgba(0,0,0,.62); backdrop-filter: blur(2px); }
+.help-close-form { float: right; margin: -8px -8px 0 0; }
+.help-close {
+  border: 0; background: none; cursor: pointer;
+  font-size: 24px; line-height: 1; color: var(--ink-2); padding: 4px 8px;
+}
+.help-close:hover { color: var(--ink); }
+.help-dialog h2 { margin: 0 0 8px; font-size: 20px; letter-spacing: -.015em; text-transform: none; color: var(--ink); }
+.help-lede { margin: 0 0 22px; color: var(--ink-2); font-size: 14px; }
+.help-step { margin-bottom: 20px; }
+.help-step h3 {
+  display: flex; align-items: center; gap: 9px;
+  margin: 0 0 8px; font-size: 13px;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--ink-2);
+}
+.help-n {
+  display: grid; place-items: center;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent); color: #15150c;
+  font-size: 11px; font-weight: 800;
+}
+.help-step ul { margin: 0; padding-left: 18px; color: var(--ink-2); }
+.help-step li { margin-bottom: 5px; font-size: 13.5px; }
+.help-traps b { color: var(--ink); }
+.help-step pre {
+  margin: 12px 0 0; padding: 12px 14px;
+  background: #101011; border: 1px solid var(--line); border-radius: 9px;
+  overflow-x: auto;
+}
+.help-step code {
+  font: 400 11.5px/1.6 'JetBrains Mono', ui-monospace, monospace;
+  color: var(--ink);
+}
+
+.export-error { padding: 22px; color: var(--ink); }
+.export-error b { color: #ff8b6b; }
+.export-error p { margin: 6px 0 0; font-size: 13px; color: var(--ink-2); }

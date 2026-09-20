@@ -1,0 +1,312 @@
+/* ================= the garden page =================
+   Layout only, and there is very little of it: the page draws nothing but the
+   cards. No plate behind them, no name under them, no panel beside them.
+
+   Nothing here may set transform, opacity or filter on a card frame — those
+   are written from the rAF loop in GardenStack.jsx every frame, and a CSS rule
+   on the same property is a race the rule wins exactly once, on re-render,
+   which shows up as a one-frame flicker whenever the focused card changes. */
+
+.garden-root {
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+/* The showcase stays hidden until it has measured the real viewport, so the
+   1280px default never flashes and snaps to a phone's width mid-intro. */
+.garden-mount-gate { opacity: 0; }
+.garden-mount-gate.is-mounted { opacity: 1; }
+
+.garden-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  pointer-events: none;
+}
+
+.garden-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* No inset for the top bar. Reserving that strip put a hard horizontal cut
+     across the card above the focused one, exactly where the bar's lower edge
+     sits, and a straight edge at a fixed height is the one thing that makes a
+     floating card look boxed. Cards run the full height and pass behind the
+     bar instead, which is what its blur is for. */
+  pointer-events: none;
+}
+
+.garden-stage {
+  position: relative;
+  /* Every card inside is absolutely positioned, so the stage has no
+     intrinsic width to hug — left to `auto` it measures zero, and the
+     scroller's overflow:hidden then clips the entire stack out of existence
+     while the cards' own boxes still report sensible coordinates. */
+  width: 100%;
+  max-width: 100%;
+  /* The full height under the top bar, rather than a box sized to the stack.
+     With no plate around a card there is no frame for it to be cropped by, so
+     a card leaving the stack should run off the edge of the SCREEN and fade —
+     a shorter stage slices it at an arbitrary line partway up the page, and
+     the sliver that survives reads as a shard rather than the next card. */
+  height: 100%;
+  pointer-events: auto;
+  /* Vertical panning stays the browser's on touch — Lenis reads it and the
+     stack follows. The mouse drag handler claims nothing the finger needs. */
+  touch-action: pan-y;
+}
+
+/* One persistent renderer for the whole garden. Card groups move inside this
+   canvas; the scroll loop never mounts or replaces a renderer. */
+.garden-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: auto;
+  contain: layout paint style;
+}
+.garden-canvas > div,
+.garden-canvas canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+/* ---- frosted edge veil ----
+   Cards continue moving in the one persistent WebGL canvas underneath these
+   two fixed layers. A mask feathers the backdrop filter itself, so there is
+   no rectangular blur boundary and no card needs a second render path. */
+
+.garden-edge-glass {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  overflow: hidden;
+  pointer-events: none;
+  isolation: isolate;
+}
+
+.garden-edge-glass__veil {
+  position: absolute;
+  left: var(--garden-glass-inset);
+  width: calc(100% - (var(--garden-glass-inset) * 2));
+  height: var(--garden-glass-height);
+  border-radius: var(--garden-glass-corner-radius);
+  opacity: var(--garden-glass-strength);
+  background: color-mix(
+    in srgb,
+    var(--garden-glass-tint-color) calc(var(--garden-glass-tint-opacity) * 100%),
+    transparent
+  );
+  backdrop-filter:
+    blur(var(--garden-glass-blur))
+    saturate(var(--garden-glass-saturation))
+    brightness(var(--garden-glass-brightness));
+  -webkit-backdrop-filter:
+    blur(var(--garden-glass-blur))
+    saturate(var(--garden-glass-saturation))
+    brightness(var(--garden-glass-brightness));
+  will-change: opacity;
+}
+
+.garden-edge-glass__veil::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--garden-glass-gloss);
+}
+
+.garden-edge-glass__veil--top {
+  top: 0;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 var(--garden-glass-feather-start),
+    rgba(0, 0, 0, var(--garden-glass-feather-mid-opacity)) var(--garden-glass-feather-mid),
+    transparent var(--garden-glass-feather-end)
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 var(--garden-glass-feather-start),
+    rgba(0, 0, 0, var(--garden-glass-feather-mid-opacity)) var(--garden-glass-feather-mid),
+    transparent var(--garden-glass-feather-end)
+  );
+}
+
+.garden-edge-glass__veil--top::after {
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.2), transparent 18%),
+    radial-gradient(ellipse 70% 44% at 50% 0%, rgba(255, 255, 255, 0.2), transparent 72%);
+}
+
+.garden-edge-glass__veil--bottom {
+  bottom: 0;
+  -webkit-mask-image: linear-gradient(
+    to top,
+    #000 0%,
+    #000 var(--garden-glass-feather-start),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to top,
+    #000 0%,
+    #000 var(--garden-glass-feather-start),
+    transparent 100%
+  );
+}
+
+/* Optional silhouettes keep the geometry controllable without introducing a
+   second render path for the cards underneath. */
+.garden-edge-glass--pill .garden-edge-glass__veil--top {
+  border-radius: 0 0 var(--garden-glass-corner-radius) var(--garden-glass-corner-radius);
+}
+
+.garden-edge-glass--pill .garden-edge-glass__veil--bottom {
+  border-radius: var(--garden-glass-corner-radius) var(--garden-glass-corner-radius) 0 0;
+}
+
+.garden-edge-glass--arch .garden-edge-glass__veil--top {
+  border-radius: 0 0 50% 50% / 0 0 var(--garden-glass-corner-radius) var(--garden-glass-corner-radius);
+}
+
+.garden-edge-glass--arch .garden-edge-glass__veil--bottom {
+  border-radius: 50% 50% 0 0 / var(--garden-glass-corner-radius) var(--garden-glass-corner-radius) 0 0;
+}
+
+.garden-edge-glass__veil--bottom::after {
+  background:
+    linear-gradient(to top, rgba(255, 255, 255, 0.18), transparent 18%),
+    radial-gradient(ellipse 70% 44% at 50% 100%, rgba(255, 255, 255, 0.16), transparent 72%);
+}
+
+/* Nothing clips a card but the window.
+
+   This used to be `overflow: hidden`, which drew the stack inside a box the
+   height of the stage — so a card leaving the centre met a hard edge and was
+   sliced along it. Visible overflow means the only boundary left is the edge
+   of the screen, and a card on its way out simply leaves. */
+.garden-scroller {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Except in the grid, which is a real scroller and needs a box to scroll
+   inside. Only once the morph has fully settled, though: any earlier and a
+   wheel tick scrolls a container whose contents are still flying to their
+   places. */
+.garden-scroller[data-browsing='true'] {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.garden-scroller[data-browsing='true']::-webkit-scrollbar { display: none; }
+
+/* `margin: auto` rather than `align-items: center` on the scroller. Both
+   centre a grid shorter than the stage, but centring from the container
+   clips the overflow's leading edge once the grid is TALLER than the stage —
+   the first row becomes unreachable, scroll as you like. Auto margins centre
+   and still let the whole thing be scrolled to. */
+.garden-cards {
+  position: relative;
+  flex: 0 0 auto;
+  margin: auto;
+}
+
+/* The card's box: its canvas and its hit target, and nothing else. No fill,
+   no border, no shadow — whatever the card reflects is the whole image. */
+.garden-card-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: none;
+  cursor: default;
+  /* These frames only preserve the stack's layout math. Interaction belongs
+     to the single WebGL canvas above them. */
+  pointer-events: none !important;
+  will-change: transform, opacity, filter;
+  /* Placed by the render loop on the first frame. Starting at zero means the
+     unplaced stack is never visible, rather than all of it piled dead-centre
+     for one frame. */
+  opacity: 0;
+}
+
+.garden-card-frame[data-card-focused='true'] { cursor: grab; }
+.garden-card-frame[data-card-focused='true']:active { cursor: grabbing; }
+
+/* One persistent renderer sits over the centred still. Surrounding cards stay
+   as images, so scrolling never creates or destroys WebGL contexts. */
+.garden-live-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 450;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: grab;
+}
+.garden-live-card:active { cursor: grabbing; }
+.garden-live-card > div {
+  width: 100%;
+  height: 100%;
+}
+
+.garden-empty {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 80px 24px;
+}
+.garden-empty h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+
+/* ---- the view toggle ----
+   The only chrome left on the page, and the only way to reach the grid. */
+
+.garden-view-toggle {
+  position: fixed;
+  top: clamp(52px, 5vw, 66px);
+  right: clamp(18px, 3vw, 42px);
+  z-index: 520;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(24, 24, 26, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  opacity: 0.32;
+  transition: opacity 240ms ease;
+}
+.garden-view-toggle:hover,
+.garden-view-toggle:focus-within { opacity: 1; }
+
+.garden-view-toggle button {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+.garden-view-toggle button[data-active='true'] {
+  border-color: var(--line);
+  background: #101011;
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .garden-view-toggle { transition: none; }
+}
