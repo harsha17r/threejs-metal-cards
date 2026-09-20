@@ -338,13 +338,14 @@ function GardenScene({ cards, motionRef, lights }) {
             x: entry.config.view?.rotX ?? 0,
             y: entry.config.view?.rotY ?? 0,
           } })}
+          onReady={() => onCardReady?.(entry.id || index)}
         />
       ))}
     </>
   );
 }
 
-export default function GardenCanvas({ cards, motionRef, lights, lensEffects, motionTuning }) {
+export default function GardenCanvas({ cards, motionRef, lights, lensEffects, motionTuning, onCardReady }) {
   motionRef.current.tuning = motionTuning ?? GARDEN_MOTION_DEFAULTS;
   const hostRef = useRef(null);
   const updatePointer = (event) => {

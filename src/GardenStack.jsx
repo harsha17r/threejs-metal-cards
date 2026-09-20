@@ -141,7 +141,7 @@ const CLICK_SLOP_PX = 6;
 const FLICK_PROJECT_MS = 260;
 const FLICK_SETTLE_S = 0.62;
 
-export default function GardenStack({ cards, lensEffects, motionTuning }) {
+export default function GardenStack({ cards, lensEffects, motionTuning, onCardReady }) {
   const [viewportW, setViewportW] = useState(() => (typeof window === 'undefined' ? 1280 : window.innerWidth));
   const [viewportH, setViewportH] = useState(() => (typeof window === 'undefined' ? 760 : window.innerHeight));
   const [viewMode, setViewMode] = useState('list');
@@ -931,6 +931,7 @@ export default function GardenStack({ cards, lensEffects, motionTuning }) {
             lights={cards[0]?.config?.lights ?? []}
             lensEffects={lensEffects}
             motionTuning={motionTuning}
+            onCardReady={onCardReady}
           />
         </div>
       </div>

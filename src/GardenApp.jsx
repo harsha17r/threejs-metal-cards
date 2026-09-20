@@ -14,7 +14,8 @@
    them, no name, no panel, no caption: a card hangs in the dark and that is
    the whole picture. */
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { motion } from 'motion/react';
 import GardenStack, { FRAME_HEADROOM } from './GardenStack.jsx';
 import { listCards } from './library.js';
 import { DEFAULT_RIG } from '@engine/config.js';
@@ -184,9 +185,33 @@ function Empty() {
   );
 }
 
+function LoadingScreen({ progress, complete }) {
+  return (
+    <div className={`garden-loading${complete ? ' garden-loading--complete' : ''}`} aria-live="polite">
+      <div className="garden-loading__inner">
+        <div className="garden-loading__bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}>
+          <motion.div
+            className="garden-loading__fill"
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          />
+        </div>
+        <motion.div
+          className="garden-loading__percent"
+          animate={{ opacity: complete ? 0 : 1 }}
+          transition={{ duration: 0.25 }}
+        >
+          {progress}%
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
 export default function GardenApp() {
   const cards = STATIC_CARDS;
   const lighting = GARDEN_LIGHTING_DEFAULTS;
+  const [readyIds, setReadyIds] = useState(() => new Set());
   const chipControls = {
     plateColor: '#86878c',
     plateContrast: 82,
@@ -235,6 +260,12 @@ export default function GardenApp() {
     };
   }), [cards, gardenLights, chipControls]);
 
+  useEffect(() => { setReadyIds(new Set()); }, [cards]);
+  const loadingProgress = styled.length === 0
+    ? 100
+    : Math.round((readyIds.size / styled.length) * 100);
+  const loadingComplete = loadingProgress >= 100;
+
   return (
     <div className="garden-root">
       {styled.length === 0
@@ -248,9 +279,16 @@ export default function GardenApp() {
               edgeHeight: GARDEN_GLASS_DEFAULTS.geometry.height,
             }}
             motionTuning={GARDEN_MOTION}
+            onCardReady={(id) => setReadyIds((current) => {
+              if (current.has(id)) return current;
+              const next = new Set(current);
+              next.add(id);
+              return next;
+            })}
           />
         )}
       <GardenEdgeGlass controls={GARDEN_GLASS_DEFAULTS} />
+      <LoadingScreen progress={loadingProgress} complete={loadingComplete} />
     </div>
   );
 }
