@@ -177,7 +177,7 @@ function GardenLensPass({ effects }) {
   return null;
 }
 
-function GardenScene({ cards, motionRef, lights }) {
+function GardenScene({ cards, motionRef, lights, onCardReady }) {
   const { gl, scene, camera, invalidate } = useThree();
   const groups = useRef([]);
   const hoverEnabled = useRef([]);
@@ -416,7 +416,7 @@ export default function GardenCanvas({ cards, motionRef, lights, lensEffects, mo
         camera={{ fov: FOV, position: [0, 0, CAMERA_Z], near: 0.1, far: 80 }}
         frameloop="always"
       >
-        <GardenScene cards={cards} motionRef={motionRef} lights={lights} />
+        <GardenScene cards={cards} motionRef={motionRef} lights={lights} onCardReady={onCardReady} />
         {lensEffects?.enabled ? <GardenLensPass effects={lensEffects} /> : null}
       </Canvas>
     </div>
