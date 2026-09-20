@@ -11,6 +11,7 @@ const CAMERA_Z = 9.28;
    saved card on the GPU. Three cards of runway on either side are enough to
    cover the viewport and warm the next card before it can enter. */
 export const GARDEN_POOL_RADIUS = 3;
+const textureWarmCache = new Map();
 const wrappedDistance = (index, center, length) => {
   if (length <= 1) return index - center;
   const linear = index - center;
@@ -106,7 +107,7 @@ const LENS_FRAGMENT_SHADER = /* glsl */`
    masked to the same screen-space height as the glass veils, leaving the
    focused card in the middle pixel-perfect while the incoming and outgoing
    cards pick up the slight bend and colour separation of thick glass. */
-function GardenLensPass({ effects, motionRef }) {
+function GardenLensPass({ effects }) {
   const { gl, scene, camera, size } = useThree();
   const target = useMemo(() => {
     const next = new THREE.WebGLRenderTarget(1, 1, {
@@ -170,17 +171,9 @@ function GardenLensPass({ effects, motionRef }) {
   }, [pass, target]);
 
   useFrame(() => {
-    /* The edge lens doubles the scene render cost. While the stack is moving,
-       render the clean scene directly; the CSS glass remains visible and the
-       optical treatment returns after the short settle. This keeps scrolling
-       inside the frame budget without changing the resting composition. */
-    const moving = performance.now() - (motionRef.current.lastMotionAt || 0) < 140;
-    if (moving) {
-      gl.setRenderTarget(null);
-      gl.clear();
-      gl.render(scene, camera);
-      return;
-    }
+    /* Never swap rendering paths mid-gesture. The direct scene and optical
+       pass have different distortion and colour transforms; switching
+       between them made the card visibly jump and change tone at settle. */
     const dpr = gl.getPixelRatio();
     const width = Math.max(1, Math.round(size.width * dpr));
     const height = Math.max(1, Math.round(size.height * dpr));
@@ -426,6 +419,25 @@ export default function GardenCanvas({
     const timer = window.setTimeout(expand, 700);
     return () => window.clearTimeout(timer);
   }, [revealed]);
+  useEffect(() => {
+    /* Decode two cards beyond the live pool while they are still invisible.
+       Mounting a new card at the focus boundary must not compete with the
+       visible motion for image decode time. This warms browser memory only;
+       GPU objects are still limited to the circular live pool. */
+    const warmRadius = GARDEN_POOL_RADIUS + 2;
+    for (let offset = -warmRadius; offset <= warmRadius; offset += 1) {
+      const index = ((activeIndex + offset) % cards.length + cards.length) % cards.length;
+      const artwork = cards[index]?.config?.artwork;
+      for (const source of [artwork?.image, artwork?.depthMap]) {
+        if (!source || textureWarmCache.has(source)) continue;
+        const image = new Image();
+        image.decoding = 'async';
+        image.src = source;
+        textureWarmCache.set(source, image);
+        image.decode?.().catch(() => {});
+      }
+    }
+  }, [activeIndex, cards]);
   const updatePointer = (event) => {
     const rect = hostRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -504,7 +516,7 @@ export default function GardenCanvas({
           lights={lights}
           onCardReady={onCardReady}
         />
-        {lensEffects?.enabled ? <GardenLensPass effects={lensEffects} motionRef={motionRef} /> : null}
+        {lensEffects?.enabled ? <GardenLensPass effects={lensEffects} /> : null}
       </Canvas>
     </div>
   );

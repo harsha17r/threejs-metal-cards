@@ -18,7 +18,7 @@
   z-index: 1000;
   display: grid;
   place-items: center;
-  background: #161816;
+  background: var(--bg);
 }
 
 /* The showcase stays hidden until it has measured the real viewport, so the
@@ -160,13 +160,15 @@
     to top,
     #000 0%,
     #000 var(--garden-glass-feather-start),
-    transparent 100%
+    rgba(0, 0, 0, var(--garden-glass-feather-mid-opacity)) var(--garden-glass-feather-mid),
+    transparent var(--garden-glass-feather-end)
   );
   mask-image: linear-gradient(
     to top,
     #000 0%,
     #000 var(--garden-glass-feather-start),
-    transparent 100%
+    rgba(0, 0, 0, var(--garden-glass-feather-mid-opacity)) var(--garden-glass-feather-mid),
+    transparent var(--garden-glass-feather-end)
   );
 }
 

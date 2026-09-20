@@ -208,7 +208,6 @@ export default function GardenStack({ cards, lensEffects, motionTuning, onCardRe
     gridCardSizePx: 1, gridItemHeightPx: 1,
     loop: false,
     invalidate: null,
-    lastMotionAt: 0,
   });
 
   /* Keep one stable set of WebGL cards mounted. The document scroll position
@@ -569,7 +568,6 @@ export default function GardenStack({ cards, lensEffects, motionTuning, onCardRe
     let previousCanvasGrid = Number.NaN;
     let previousCanvasWidth = Number.NaN;
     let previousCanvasHeight = Number.NaN;
-    let lensSettleTimer = 0;
     const render = (time) => {
       if (destroyed) return;
       lenis.raf(time);
@@ -666,12 +664,7 @@ export default function GardenStack({ cards, lensEffects, motionTuning, onCardRe
         previousCanvasGrid = gridProgress;
         previousCanvasWidth = viewportW;
         previousCanvasHeight = vh;
-        canvasMotionRef.current.lastMotionAt = time;
         canvasMotionRef.current.invalidate?.();
-        window.clearTimeout(lensSettleTimer);
-        lensSettleTimer = window.setTimeout(() => {
-          canvasMotionRef.current.invalidate?.();
-        }, 170);
       }
 
       setActive(loop
@@ -797,7 +790,6 @@ export default function GardenStack({ cards, lensEffects, motionTuning, onCardRe
     return () => {
       destroyed = true;
       window.cancelAnimationFrame(frameId);
-      window.clearTimeout(lensSettleTimer);
       window.clearTimeout(keySnapResetTimer);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
