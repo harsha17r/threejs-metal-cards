@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { createEnvironmentBuilder } from '@engine/environment.js';
@@ -6,11 +6,11 @@ import { MetalCardObject } from './MetalCard.jsx';
 
 const FOV = 30;
 const CAMERA_Z = 9.28;
-/* Match the architecture used by fast, card-heavy WebGL showcases: keep a
-   small circular pool around the focused card instead of constructing every
-   saved card on the GPU. Three cards of runway on either side are enough to
-   cover the viewport and warm the next card before it can enter. */
-export const GARDEN_POOL_RADIUS = 3;
+/* The gallery is a finite catalogue with an infinite scroll position. Keep
+   every card object alive for the visit so the scroll loop never has to build
+   or dispose a WebGL scene at a boundary. The loading screen covers this
+   one-time preparation; after release, scrolling is transform-only. */
+export const GARDEN_POOL_RADIUS = 99;
 const textureWarmCache = new Map();
 const wrappedDistance = (index, center, length) => {
   if (length <= 1) return index - center;
@@ -407,30 +407,19 @@ function GardenScene({ cards, activeIndex, poolRadius, motionRef, lights, onCard
 }
 
 export default function GardenCanvas({
-  cards, activeIndex, revealed, motionRef, lights, lensEffects, motionTuning, onCardReady,
+  cards, activeIndex, motionRef, lights, lensEffects, motionTuning, onCardReady,
 }) {
   motionRef.current.tuning = motionTuning ?? GARDEN_MOTION_DEFAULTS;
   const hostRef = useRef(null);
-  const [poolRadius, setPoolRadius] = useState(revealed ? GARDEN_POOL_RADIUS : 1);
+  /* Build the entire scroll buffer while the loading screen is covering the
+     canvas. Creating a new card during a wheel gesture is what produced the
+     last one-frame hitch; the pool stays constant for the whole visit. */
+  const poolRadius = GARDEN_POOL_RADIUS;
   useEffect(() => {
-    if (!revealed) {
-      setPoolRadius(1);
-      return undefined;
-    }
-    const expand = () => setPoolRadius(GARDEN_POOL_RADIUS);
-    if ('requestIdleCallback' in window) {
-      const handle = window.requestIdleCallback(expand, { timeout: 1200 });
-      return () => window.cancelIdleCallback(handle);
-    }
-    const timer = window.setTimeout(expand, 700);
-    return () => window.clearTimeout(timer);
-  }, [revealed]);
-  useEffect(() => {
-    /* Decode two cards beyond the live pool while they are still invisible.
-       Mounting a new card at the focus boundary must not compete with the
-       visible motion for image decode time. This warms browser memory only;
-       GPU objects are still limited to the circular live pool. */
-    const warmRadius = GARDEN_POOL_RADIUS + 2;
+    /* Decode the catalogue while the loading screen is covering the canvas.
+       This keeps image decoding out of the scroll gesture as well as keeping
+       card objects stable for the full visit. */
+    const warmRadius = Math.min(cards.length, GARDEN_POOL_RADIUS + 2);
     for (let offset = -warmRadius; offset <= warmRadius; offset += 1) {
       const index = ((activeIndex + offset) % cards.length + cards.length) % cards.length;
       const artwork = cards[index]?.config?.artwork;
